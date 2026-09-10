@@ -1,0 +1,182 @@
+# NexusOps 企业级 DevOps 运维平台 —— 容器编排
+#
+# 服务拓扑：
+#   postgres       PostgreSQL 16（持久化）
+#   redis          Redis 7（broker db0 / result db1 / channel layer db2）
+#   web            Django + gunicorn（WSGI，纯 REST，内部 :8000）
+#   daphne         Django Channels + Daphne（ASGI，HTTP + WebSocket，内部 :8001）
+#   celery-worker  Celery 任务执行器
+#   celery-beat    Celery 定时调度（django-celery-beat 数据库调度器）
+#   frontend       Nginx 托管 Vue 构建产物，平台唯一对外入口（:80），
+#                  /api 反代 web、/ws 反代 daphne
+#
+# 一键启动：docker compose up -d --build，浏览器访问 http://localhost（FRONTEND_PORT）
+# REST 与 WS 解耦：浏览器 → Nginx :80 → /api 转 web、/ws 转 daphne
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-devops_platform}
+      POSTGRES_USER: ${POSTGRES_USER:-devops}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devops}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-devops} -d ${POSTGRES_DB:-devops_platform}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - devops-net
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - devops-net
+
+  web:
+    build: ./backend
+    image: nexusops-backend:latest
+    restart: unless-stopped
+    env_file: ./backend/.env
+    environment:
+      CONTAINER_ROLE: web
+      DATABASE_URL: postgres://${POSTGRES_USER:-devops}:${POSTGRES_PASSWORD:-devops}@postgres:5432/${POSTGRES_DB:-devops_platform}
+      REDIS_URL: redis://redis:6379/2
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    ports:
+      - "${WEB_PORT:-8000}:8000"
+    volumes:
+      - app_logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/v1/monitor/healthz/ready"]
+      interval: 15s
+      timeout: 8s
+      retries: 5
+      start_period: 30s
+    networks:
+      - devops-net
+
+  daphne:
+    image: nexusops-backend:latest
+    build: ./backend
+    restart: unless-stopped
+    env_file: ./backend/.env
+    environment:
+      CONTAINER_ROLE: daphne
+      DATABASE_URL: postgres://${POSTGRES_USER:-devops}:${POSTGRES_PASSWORD:-devops}@postgres:5432/${POSTGRES_DB:-devops_platform}
+      REDIS_URL: redis://redis:6379/2
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    command: ["daphne", "-b", "0.0.0.0", "-p", "8001", "config.asgi:application"]
+    ports:
+      - "${ASGI_PORT:-8001}:8001"
+    volumes:
+      - app_logs:/app/logs
+    depends_on:
+      web:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8001/api/v1/monitor/healthz/ready"]
+      interval: 15s
+      timeout: 8s
+      retries: 5
+      start_period: 30s
+    networks:
+      - devops-net
+
+  celery-worker:
+    image: nexusops-backend:latest
+    restart: unless-stopped
+    env_file: ./backend/.env
+    environment:
+      CONTAINER_ROLE: celery
+      DATABASE_URL: postgres://${POSTGRES_USER:-devops}:${POSTGRES_PASSWORD:-devops}@postgres:5432/${POSTGRES_DB:-devops_platform}
+      REDIS_URL: redis://redis:6379/2
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    command: ["celery", "-A", "config", "worker", "-l", "info", "--concurrency", "4"]
+    volumes:
+      - app_logs:/app/logs
+    depends_on:
+      web:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - devops-net
+
+  celery-beat:
+    image: nexusops-backend:latest
+    restart: unless-stopped
+    env_file: ./backend/.env
+    environment:
+      CONTAINER_ROLE: celery
+      DATABASE_URL: postgres://${POSTGRES_USER:-devops}:${POSTGRES_PASSWORD:-devops}@postgres:5432/${POSTGRES_DB:-devops_platform}
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    command:
+      - "celery"
+      - "-A"
+      - "config"
+      - "beat"
+      - "-l"
+      - "info"
+      - "--scheduler"
+      - "django_celery_beat.schedulers:DatabaseScheduler"
+    volumes:
+      - app_logs:/app/logs
+    depends_on:
+      web:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - devops-net
+
+  frontend:
+    build: ./frontend
+    image: nexusops-frontend:latest
+    restart: unless-stopped
+    # 平台唯一对外入口：宿主机直接访问 http://localhost（FRONTEND_PORT 默认 80）
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      web:
+        condition: service_started
+      daphne:
+        condition: service_started
+    networks:
+      - devops-net
+
+volumes:
+  postgres_data:
+  redis_data:
+  app_logs:
+
+networks:
+  devops-net:
+    driver: bridge

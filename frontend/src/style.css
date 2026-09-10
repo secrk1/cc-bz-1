@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 全局仅保留极少量基础约定，页面样式一律使用 Tailwind Utility Classes */
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  @apply bg-slate-950 text-slate-200 antialiased;
+}
+
+/* 深色滚动条，贴合科技感主题 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  @apply rounded-full bg-slate-700;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
