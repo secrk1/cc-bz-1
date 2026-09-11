@@ -29,6 +29,9 @@ SECRET_KEY = env("DJANGO_SECRET_KEY")
 DEBUG = env("DJANGO_DEBUG")
 ALLOWED_HOSTS = env("DJANGO_ALLOWED_HOSTS")
 
+# CMDB 凭据密文落库的独立主密钥（缺省回退 SECRET_KEY，生产环境建议单独配置）
+CMDB_CREDENTIAL_SECRET = env("CMDB_CREDENTIAL_SECRET", default=None)
+
 # ---------------------------------------------------------------------------
 # 应用注册 —— 刻意不包含 django.contrib.admin / django.contrib.messages
 # ---------------------------------------------------------------------------

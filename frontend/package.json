@@ -10,10 +10,17 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",
+    "@fast-crud/fast-crud": "^1.28.7",
+    "@fast-crud/ui-element": "^1.28.7",
+    "@fast-crud/ui-interface": "^1.28.7",
+    "@iconify/vue": "^5.0.1",
     "axios": "^1.7.7",
+    "dayjs": "^1.11.23",
     "element-plus": "^2.8.5",
+    "lodash-es": "^4.18.1",
     "pinia": "^2.2.4",
     "vue": "^3.5.12",
+    "vue-i18n": "^9.14.5",
     "vue-router": "^4.4.5"
   },
   "devDependencies": {

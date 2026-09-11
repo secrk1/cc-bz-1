@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
 defineProps({
@@ -25,6 +25,7 @@ const menus = [
     children: [
       { index: '/cmdb', label: '工作台', icon: 'HomeFilled' },
       { index: '/cmdb/environments', label: '运行环境', icon: 'Connection' },
+      { index: '/cmdb/servers', label: '服务器资产', icon: 'Cpu' },
     ],
   },
   {
@@ -52,11 +53,20 @@ const menus = [
     children: [{ index: '/settings', label: '系统设置', icon: 'HomeFilled' }],
   },
 ]
+
+// 初始仅展开当前路由所属的一级分组，其余保持折叠
+const resolveOpened = (path) => {
+  const group = menus.find((g) =>
+    g.children.some((item) => path === item.index || path.startsWith(`${item.index}/`)),
+  )
+  return group ? [group.index] : []
+}
+const defaultOpeneds = ref(resolveOpened(route.path))
 </script>
 
 <template>
   <aside
-    class="flex h-full shrink-0 flex-col border-r border-slate-800 bg-slate-900/80 backdrop-blur transition-all duration-200"
+    class="side-nav flex h-full shrink-0 flex-col border-r border-slate-800 bg-slate-900/80 backdrop-blur transition-all duration-200"
     :class="collapsed ? 'w-16' : 'w-60'"
   >
     <!-- 品牌区 -->
@@ -76,7 +86,7 @@ const menus = [
     <el-scrollbar class="flex-1">
       <el-menu
         :default-active="activeMenu"
-        :default-openeds="menus.map((m) => m.index)"
+        :default-openeds="defaultOpeneds"
         :collapse="collapsed"
         :collapse-transition="false"
         router
@@ -88,13 +98,13 @@ const menus = [
         <el-sub-menu v-for="menu in menus" :key="menu.index" :index="menu.index">
           <template #title>
             <el-icon class="text-base"><component :is="menu.icon" /></el-icon>
-            <span>{{ menu.label }}</span>
+            <span class="nav-group-label">{{ menu.label }}</span>
           </template>
           <el-menu-item
             v-for="item in menu.children"
             :key="item.index"
             :index="item.index"
-            class="mx-2 !rounded-lg !px-3 hover:!bg-slate-800/70"
+            class="nav-sub-item"
           >
             <el-icon><component :is="item.icon" /></el-icon>
             <template #title>{{ item.label }}</template>
@@ -109,3 +119,59 @@ const menus = [
     </div>
   </aside>
 </template>
+
+<style scoped>
+/* ---- 菜单层级：一级分组 / 二级功能项明确区分（沿用深色 + cyan 主题） ---- */
+.side-nav :deep(.el-sub-menu__title) {
+  height: 44px;
+  margin: 2px 10px;
+  border-radius: 8px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #cbd5e1;
+}
+.side-nav :deep(.el-sub-menu__title:hover) {
+  background-color: rgba(30, 41, 59, 0.7);
+  color: #e2e8f0;
+}
+.nav-group-label {
+  font-size: 13px;
+}
+
+/* 二级菜单容器：缩进 + 竖向导轨，强化与一级的从属关系 */
+.side-nav :deep(.el-sub-menu .el-menu) {
+  position: relative;
+  margin: 0 10px 4px 24px;
+  padding-left: 10px;
+  background-color: transparent;
+  border-left: 1px solid rgba(30, 41, 59, 0.9);
+}
+.side-nav :deep(.nav-sub-item) {
+  height: 38px;
+  margin: 1px 0;
+  padding-left: 12px !important;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #94a3b8;
+}
+.side-nav :deep(.nav-sub-item:hover) {
+  background-color: rgba(30, 41, 59, 0.6);
+  color: #e2e8f0;
+}
+.side-nav :deep(.nav-sub-item.is-active) {
+  color: #22d3ee;
+  background-color: rgba(34, 211, 238, 0.1);
+  font-weight: 600;
+}
+.side-nav :deep(.nav-sub-item.is-active::before) {
+  content: '';
+  position: absolute;
+  left: -11px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 16px;
+  border-radius: 2px;
+  background-color: #22d3ee;
+}
+</style>

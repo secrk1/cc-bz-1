@@ -28,6 +28,12 @@ const routes = [
         component: () => import('@/views/cmdb/environments/EnvironmentsView.vue'),
         meta: { title: '运行环境', breadcrumb: ['配置中心', '运行环境管理'] },
       },
+      {
+        path: 'cmdb/servers',
+        name: 'cmdb-servers',
+        component: () => import('@/views/cmdb/servers/ServersView.vue'),
+        meta: { title: '服务器资产', breadcrumb: ['配置中心', '服务器资产管理'] },
+      },
       // ---- 运维中心 ----
       {
         path: 'ops',

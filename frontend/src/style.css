@@ -24,3 +24,27 @@ body {
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* ---------------------------------------------------------------------------
+ * Element Plus 暗色主题与 fast-crud 的统一补丁。
+ * 平台为深色框架，el 组件经 html.dark 自动暗色；fast-crud 少量硬编码白底
+ * （card 布局的筛选 tabs）在此强制跟随暗色，避免黑白拼接。
+ * ------------------------------------------------------------------------- */
+html.dark .fs-layout-card .fs-tabs-filter .el-tabs--card > .el-tabs__header .el-tabs__item,
+html.dark .fs-layout-card .fs-tabs-filter .el-tabs--card > .el-tabs__header .el-tabs__item.is-active {
+  background-color: transparent;
+}
+
+/* fast-crud 表格容器与表单在深色面板中透明化，交由面板统一底色 */
+html.dark .fs-crud-table.el-table,
+html.dark .fs-container {
+  background-color: transparent;
+}
+
+/* 分页器在深色面板下的兜底文字色 */
+html.dark .el-pagination,
+html.dark .el-pagination button,
+html.dark .el-pagination .el-pager li {
+  color: var(--el-text-color-regular);
+  background-color: transparent;
+}

@@ -18,7 +18,7 @@ class EnvironmentSerializer(serializers.ModelSerializer):
         model = Environment
         fields = (
             "id", "name", "code", "env_type", "env_type_display",
-            "cluster_endpoint", "namespace", "description",
+            "cluster_endpoint", "namespace", "sort_order", "description",
             "status", "status_display", "created_by_name",
             "created_at", "updated_at",
         )
@@ -30,8 +30,16 @@ class EnvironmentWriteSerializer(serializers.ModelSerializer):
         model = Environment
         fields = (
             "name", "code", "env_type", "cluster_endpoint",
-            "namespace", "description", "status",
+            "namespace", "sort_order", "description", "status",
         )
 
     def validate_code(self, value: str) -> str:
         return value.strip().lower()
+
+    def validate(self, attrs):
+        code = attrs.get("code")
+        env_type = attrs.get("env_type")
+        # 标准五环境的 code 与 env_type 必须一致
+        if code in Environment.STANDARD_ENV_CODES and env_type and code != env_type:
+            raise serializers.ValidationError({"env_type": f"标准环境 {code} 的类型必须为 {code}"})
+        return attrs
